@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 96" fill="none">
+
+  <!-- Left ear — Claude orange fill, darker orange outline -->
+  <path d="M23,52 C18,38 15,18 19,6 C21,0 28,0 30,7 C33,18 31,38 27,52 Z"
+        fill="#E8722A" stroke="#B84E10" stroke-width="2.8" stroke-linejoin="round"/>
+
+  <!-- Right ear — mirror of left -->
+  <path d="M47,52 C52,38 55,18 51,6 C49,0 42,0 40,7 C37,18 39,38 43,52 Z"
+        fill="#E8722A" stroke="#B84E10" stroke-width="2.8" stroke-linejoin="round"/>
+
+  <!-- Head — orange oval -->
+  <ellipse cx="35" cy="65" rx="20" ry="17"
+           fill="#E8722A" stroke="#B84E10" stroke-width="2.8"/>
+
+  <!-- Dark hole — covers lower half of head, giving the peeking effect -->
+  <ellipse cx="35" cy="80" rx="29" ry="13" fill="#1A1A2E"/>
+
+  <!-- Left eye — drawn after hole so always visible on top -->
+  <circle cx="27" cy="62" r="3.5" fill="#1A1A2E"/>
+
+  <!-- Right eye -->
+  <circle cx="43" cy="62" r="3.5" fill="#1A1A2E"/>
+
+  <!-- Nose — sits at the hole rim -->
+  <circle cx="35" cy="70" r="2.5" fill="#1A1A2E"/>
+
+</svg>
