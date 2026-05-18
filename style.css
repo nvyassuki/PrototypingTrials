@@ -92,6 +92,20 @@ body.expanded #panel {
 #voice-dot.success { background: #2A7A50; }
 #voice-dot.error   { background: #D94040; }
 
+#listening-banner {
+  display: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  padding: 6px 10px;
+  letter-spacing: 0.02em;
+  background: #E8722A;
+}
+#listening-banner.visible { display: block; }
+#listening-banner.red     { background: #D94040; }
+#listening-banner.orange  { background: #E8722A; }
+
 @keyframes pulse-dot {
   0%, 100% { opacity: 1;   transform: scale(1);   }
   50%       { opacity: 0.4; transform: scale(1.5); }

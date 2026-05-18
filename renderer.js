@@ -269,44 +269,73 @@ function formatTime(iso) {
   return sameDay ? `Today ${hh}:${mm}` : `${'Sun Mon Tue Wed Thu Fri Sat'.split(' ')[d.getDay()]} ${hh}:${mm}`;
 }
 
-// ── Voice (Python owns mic + VAD + Whisper, we just handle transcripts) ───────
-
-let voiceState   = 'idle';
-let commandTimer = null;
+// ── Voice (Python owns wake-word + Whisper; renderer just reacts) ─────────────
 
 function setDot(state) { if (voiceDot) voiceDot.className = state; }
 setDot('loading');
 
 window.floatnote.receive('whisper:ready', () => setDot('idle'));
 
-window.floatnote.receive('whisper:transcript', transcript => {
-  handleVoiceInput(transcript.toLowerCase().trim());
+window.floatnote.receive('whisper:wake', () => {
+  setDot('awake');
+  window.floatnote.send('window:expand');
+  showBanner('● Listening…', 'orange');
+  playBeep(880, 0.08);
 });
 
-function handleVoiceInput(heard) {
-  if (voiceState === 'idle') {
-    if (!heard.includes('bunny')) return;
+window.floatnote.receive('whisper:partial', text => {
+  const clean = (text || '').trim();
+  if (clean) showBanner(`● ${clean}`, 'orange');
+});
 
-    voiceState = 'awake';
-    setDot('awake');
-    window.floatnote.send('window:expand');
-
-    // Command in same breath: "bunny add buy milk"
-    const rest = heard.slice(heard.indexOf('bunny') + 5).replace(/^[\s,]+/, '');
-    if (rest.length > 1) { runCommand(rest); return; }
-
-    clearTimeout(commandTimer);
-    commandTimer = setTimeout(() => { voiceState = 'idle'; setDot('idle'); }, 5000);
-
-  } else if (voiceState === 'awake') {
-    clearTimeout(commandTimer);
-    runCommand(heard);
+window.floatnote.receive('whisper:result', text => {
+  const clean = (text || '').toLowerCase().trim();
+  if (!clean) {
+    showBanner('Didn\'t catch that', 'red');
+    setTimeout(hideBanner, 1500);
+    setDot('error');
+    setTimeout(() => setDot('idle'), 1500);
+    return;
   }
+  showBanner(`✓ ${clean}`, 'orange');
+  setTimeout(hideBanner, 1500);
+  runCommand(clean);
+});
+
+function showBanner(text, variant) {
+  let b = document.getElementById('listening-banner');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'listening-banner';
+    document.getElementById('panel').prepend(b);
+  }
+  b.textContent = text;
+  b.className = `visible ${variant || ''}`;
+}
+
+function hideBanner() {
+  const b = document.getElementById('listening-banner');
+  if (b) b.classList.remove('visible');
+}
+
+let _audioCtx = null;
+function playBeep(freq, dur) {
+  try {
+    _audioCtx = _audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, _audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.15, _audioCtx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, _audioCtx.currentTime + dur);
+    osc.connect(gain).connect(_audioCtx.destination);
+    osc.start();
+    osc.stop(_audioCtx.currentTime + dur);
+  } catch (e) {}
 }
 
 function runCommand(text) {
-  voiceState = 'idle';
-
   const m = text.match(/^(?:note|add|write|save|capture|remember|jot(?:\s+down)?)\s+(.+)$/i);
   if (m) {
     createNote(m[1].trim(), 'voice');

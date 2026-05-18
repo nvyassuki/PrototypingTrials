@@ -200,9 +200,26 @@ function startWhisper() {
         if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('whisper:ready');
         continue;
       }
-      // Forward every transcript to the renderer.
-      if (t !== 'EMPTY' && mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('whisper:transcript', t);
+      if (t.startsWith('WAKE')) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const conf = parseFloat(t.split(' ')[1]) || 0;
+          mainWindow.webContents.send('whisper:wake', conf);
+        }
+        continue;
+      }
+      if (t.startsWith('RESULT')) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const text = t.slice(6).trim();
+          mainWindow.webContents.send('whisper:result', text);
+        }
+        continue;
+      }
+      if (t.startsWith('PARTIAL')) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const text = t.slice(7).trim();
+          mainWindow.webContents.send('whisper:partial', text);
+        }
+        continue;
       }
     }
   });
