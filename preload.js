@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('floatnote', {
     if (allowed.includes(channel)) ipcRenderer.send(channel, data);
   },
   receive: (channel, callback) => {
-    const allowed = ['notes:loaded', 'clipboard:new', 'window:state', 'whisper:ready', 'whisper:transcript'];
+    const allowed = ['notes:loaded', 'clipboard:new', 'window:state', 'whisper:ready', 'whisper:wake', 'whisper:transcript', 'whisper:result', 'whisper:partial'];
     if (allowed.includes(channel)) ipcRenderer.on(channel, (_, ...args) => callback(...args));
   },
 });
