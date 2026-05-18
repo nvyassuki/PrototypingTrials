@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Voice pipeline: mic → livekit-wakeword (wake on "hey livekit") → faster-whisper for the command.
+# Voice pipeline: mic → livekit-wakeword (wake on "hey bunny") → faster-whisper for the command.
 #
 # Protocol on stdout (one line each):
 #   READY            once at startup, after models load
@@ -26,7 +26,7 @@ SAMPLE_RATE      = 16000
 FRAME_SAMPLES    = 1280            # 80ms per audio callback frame (matches listener)
 WAKE_WINDOW_SEC  = 2.0             # rolling window fed to the wake-word model
 WAKE_FRAMES      = int(WAKE_WINDOW_SEC * SAMPLE_RATE / FRAME_SAMPLES)
-WAKE_THRESHOLD   = 0.5             # raise if false positives; lower if it misses you
+WAKE_THRESHOLD   = 0.06            # custom bunny model's eval-optimal threshold (FPPH 0.11, Recall 1.0)
 WAKE_INFER_EVERY = 2               # run wake inference every Nth frame (~160ms)
 DEBOUNCE_FRAMES  = int(2.0 * SAMPLE_RATE / FRAME_SAMPLES)  # ignore wake for 2s after firing
 
@@ -41,7 +41,7 @@ PRE_WAKE_FRAMES  = int(0.3 * SAMPLE_RATE / FRAME_SAMPLES)   # 300ms pre-roll bef
 # ── Models ───────────────────────────────────────────────────────────────────
 
 HERE         = Path(__file__).parent
-WAKE_MODEL   = HERE / "hey_livekit.onnx"
+WAKE_MODEL   = HERE / "bunny.onnx"
 
 wake_model = WakeWordModel(models=[str(WAKE_MODEL)])
 # small.en: English-only, ~244M params, much better accuracy than tiny.
