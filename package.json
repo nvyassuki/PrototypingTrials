@@ -1,12 +1,55 @@
 {
   "name": "floatnote",
   "version": "1.0.0",
-  "description": "Floating sticky note panel",
+  "description": "Floating sticky note panel with voice commands",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac dmg"
   },
-  "dependencies": {
-    "electron": "^30.0.0"
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.floatnote.app",
+    "productName": "FloatNote",
+    "copyright": "Copyright © 2025 FloatNote",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "style.css",
+      "bunny.svg",
+      "bunny-pip.png"
+    ],
+    "extraResources": [
+      {
+        "from": "dist/transcribe_bundle/transcribe",
+        "to": "transcribe",
+        "filter": ["**/*"]
+      }
+    ],
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": null,
+      "entitlementsInherit": null
+    },
+    "dmg": {
+      "title": "FloatNote",
+      "background": null,
+      "window": { "width": 540, "height": 380 },
+      "contents": [
+        { "x": 140, "y": 180, "type": "file" },
+        { "x": 400, "y": 180, "type": "link", "path": "/Applications" }
+      ]
+    }
   }
 }

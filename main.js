@@ -1,24 +1,22 @@
 const {
   app, BrowserWindow, Tray, Menu,
   globalShortcut, ipcMain, clipboard,
-  nativeImage, screen, shell, session
+  nativeImage, screen, shell
 } = require('electron');
 const path      = require('path');
 const fs        = require('fs');
-const http      = require('http');
-const os        = require('os');
 const { spawn } = require('child_process');
 
 let mainWindow        = null;
+let pipWindow         = null;
 let tray              = null;
-let serverPort        = null;
 let isCollapsed       = false;
 let cursorInterval    = null;
 let clipboardInterval = null;
 let lastClipboardText = '';
 let whisperProc = null;
 
-// ── Window ───────────────────────────────────────────────────────────────────
+// ── Windows ──────────────────────────────────────────────────────────────────
 
 function createWindow() {
   const { width: sw } = screen.getPrimaryDisplay().workAreaSize;
@@ -28,6 +26,7 @@ function createWindow() {
     x: sw - 320, y: 20,
     frame: false,
     transparent: true,
+    backgroundColor: '#00000000',
     hasShadow: false,
     alwaysOnTop: true,
     level: 'floating',
@@ -39,12 +38,31 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL(`http://127.0.0.1:${serverPort}/`);
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
   mainWindow.webContents.on('did-finish-load', () => {
     loadNotes();
     mainWindow.webContents.send('window:state', 'expanded');
   });
+}
+
+function createPipWindow() {
+  pipWindow = new BrowserWindow({
+    width: 44, height: 44,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    alwaysOnTop: true,
+    level: 'screen-saver',
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
+  pipWindow.loadFile(path.join(__dirname, 'pip.html'));
+  pipWindow.hide();
+  pipWindow.on('closed', () => { pipWindow = null; });
 }
 
 // ── Expand / Collapse ────────────────────────────────────────────────────────
@@ -54,13 +72,13 @@ function expand() {
   isCollapsed = false;
 
   stopCursorTracking();
-  mainWindow.setIgnoreMouseEvents(false);
-  mainWindow.setAlwaysOnTop(true, 'floating');
+  if (pipWindow) pipWindow.hide();
 
   const { width: sw } = screen.getPrimaryDisplay().workAreaSize;
   mainWindow.setSize(300, 500);
   mainWindow.setPosition(sw - 320, 20);
   mainWindow.setResizable(true);
+  mainWindow.show();
   mainWindow.focus();
   mainWindow.webContents.send('window:state', 'expanded');
 }
@@ -69,12 +87,9 @@ function collapse() {
   if (isCollapsed) return;
   isCollapsed = true;
 
-  mainWindow.setResizable(false);
-  mainWindow.setSize(44, 44);
-  mainWindow.setIgnoreMouseEvents(true, { forward: true });
-  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  mainWindow.hide();
+  if (pipWindow) pipWindow.show();
   startCursorTracking();
-  mainWindow.webContents.send('window:state', 'collapsed');
 }
 
 function toggle() { isCollapsed ? expand() : collapse(); }
@@ -84,9 +99,9 @@ function toggle() { isCollapsed ? expand() : collapse(); }
 function startCursorTracking() {
   stopCursorTracking();
   cursorInterval = setInterval(() => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (!pipWindow || pipWindow.isDestroyed()) return;
     const p = screen.getCursorScreenPoint();
-    mainWindow.setPosition(p.x + 16, p.y + 16);
+    pipWindow.setPosition(p.x + 16, p.y + 16);
   }, 50);
 }
 
@@ -162,31 +177,22 @@ ipcMain.on('window:expand',   ()         => expand());
 ipcMain.on('window:collapse', ()         => collapse());
 ipcMain.on('window:hide',     ()         => { if (mainWindow) mainWindow.hide(); });
 
-// ── Local HTTP server (needed for microphone API) ────────────────────────────
-
-function createLocalServer() {
-  const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
-
-  const server = http.createServer((req, res) => {
-    const urlPath  = req.url === '/' ? '/index.html' : req.url.split('?')[0];
-    const filePath = path.join(__dirname, urlPath);
-    try {
-      res.setHeader('Content-Type', mime[path.extname(filePath).toLowerCase()] || 'application/octet-stream');
-      res.end(fs.readFileSync(filePath));
-    } catch (e) { res.writeHead(404); res.end('Not found'); }
-  });
-
-  return new Promise(resolve => server.listen(0, '127.0.0.1', () => { serverPort = server.address().port; resolve(); }));
-}
-
 // ── Whisper (local speech-to-text) ───────────────────────────────────────────
 
 function startWhisper() {
-  const scriptPath = path.join(__dirname, 'transcribe.py');
-  const venvPy     = path.join(__dirname, 'venv', 'bin', 'python3');
-  const py         = fs.existsSync(venvPy) ? venvPy : 'python3';
+  // When packaged, use the PyInstaller-built binary bundled in Resources/transcribe/.
+  // In dev, fall back to venv python or system python3.
+  let cmd, args;
+  if (app.isPackaged) {
+    cmd  = path.join(process.resourcesPath, 'transcribe', 'transcribe');
+    args = [];
+  } else {
+    const venvPy = path.join(__dirname, 'venv', 'bin', 'python3');
+    cmd  = fs.existsSync(venvPy) ? venvPy : 'python3';
+    args = [path.join(__dirname, 'transcribe.py')];
+  }
 
-  whisperProc = spawn(py, [scriptPath], { stdio: ['pipe', 'pipe', 'pipe'] });
+  whisperProc = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
 
   let lineBuf = '';
   whisperProc.stdout.on('data', chunk => {
@@ -231,18 +237,14 @@ function startWhisper() {
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
-  await createLocalServer();
-
-  session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(perm === 'media'));
-  session.defaultSession.setPermissionCheckHandler((wc, perm) => perm === 'media' ? true : null);
-
   createWindow();
+  createPipWindow();
   createTray();
   registerHotkey();
   startClipboardWatcher();
   startWhisper();
 
-  app.on('activate', () => { if (mainWindow) { mainWindow.show(); expand(); } });
+  app.on('activate', () => { if (mainWindow) { expand(); } });
 });
 
 app.on('before-quit', () => {
